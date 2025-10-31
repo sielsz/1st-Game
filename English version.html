@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Connect the Region with Its Traditional Foods</title>
+  <style>
+    :root{--blue:#2563eb;--blue-dark:#1e40af;--white:#ffffff;--black:#000000;--gray:#d1d5db}
+    body{font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial; background:#ffffff;margin:0;padding:20px;color:var(--black)}
+    .container{max-width:920px;margin:0 auto;text-align:center}
+    h1{font-size:20px;margin-bottom:12px;text-align:center}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;justify-content:center}
+    .col h2{margin:0 0 8px 0;font-size:16px;text-align:center}
+    button.region{width:100%;padding:12px;margin:8px 0;border-radius:12px;border:0;color:var(--white);font-size:16px;cursor:pointer}
+    button.region.bg-blue{background:var(--blue)}
+    button.region.bg-blue:hover{background:var(--blue-dark)}
+    button.region.selected{background:var(--blue-dark)}
+    button.region.completed{background:var(--gray);color:#6b7280;cursor:default}
+
+    button.food{width:100%;padding:12px;margin:8px 0;border-radius:12px;border:1px solid #e5e7eb;background:var(--white);color:var(--black);font-size:16px;cursor:pointer;text-align:center}
+    button.food.completed{background:#f3f4f6;color:#6b7280;cursor:default}
+    button.food.shake{animation:shake .45s}
+    @keyframes shake{0%{transform:translateX(0)}25%{transform:translateX(-8px)}50%{transform:translateX(8px)}75%{transform:translateX(-8px)}100%{transform:translateX(0)}}
+
+    .modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:60}
+    .modal{background:var(--white);padding:24px;border-radius:16px;max-width:320px;text-align:center;box-shadow:0 8px 24px rgba(0,0,0,.2)}
+    .btn-blue{background:var(--blue);color:var(--white);border:0;padding:10px 14px;border-radius:8px;cursor:pointer}
+
+    @media (max-width:720px){.grid{grid-template-columns:1fr;}}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Connect the Region with Its Traditional Foods</h1>
+    <div class="grid">
+      <div class="col">
+        <h2>Region</h2>
+        <div id="regions"></div>
+      </div>
+      <div class="col">
+        <h2>Foods</h2>
+        <div id="foods"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal -->
+  <div id="modal" style="display:none" class="modal-backdrop">
+    <div class="modal">
+      <p id="modal-text" style="font-size:18px;margin-bottom:16px;color:#000">GOOD BOY</p>
+      <button id="play-again" class="btn-blue">Play Again</button>
+    </div>
+  </div>
+
+  <script>
+    const foodsData = [
+      { region: "Southern", items: [ { name: "Jareesh" }, { name: "Maghash" } ]},
+      { region: "Western", items: [ { name: "Saleeg" }, { name: "Madini Rice" } ]},
+      { region: "Eastern", items: [ { name: "Hasawi Rice" }, { name: "Mafloog" } ]},
+      { region: "Northern", items: [ { name: "Bakila" }, { name: "Sayadiya" } ]}
+    ];
+
+    let regions = [], foodItems = [], selectedRegion = null, completedRegions = {}, completedFoods = {}, completed = false;
+
+    const regionsEl = document.getElementById('regions');
+    const foodsEl = document.getElementById('foods');
+
+    function shuffle(array){ return array.sort(() => Math.random()-0.5); }
+
+    function initGame(){
+      const all = foodsData.flatMap(f=> f.items.map(i=> ({...i, region: f.region}))); 
+      foodItems = shuffle(all.slice());
+      regions = foodsData.map(f=> f.region);
+      selectedRegion = null;
+      completedRegions = {};
+      completedFoods = {};
+      completed = false;
+      render();
+    }
+
+    function render(){
+      regionsEl.innerHTML = '';
+      regions.forEach(region=>{
+        const btn = document.createElement('button');
+        btn.className = 'region bg-blue';
+        if (completedRegions[region]) btn.className = 'region completed';
+        else if (selectedRegion === region) btn.className = 'region selected';
+        btn.textContent = region;
+        btn.disabled = !!completedRegions[region];
+        btn.addEventListener('click', ()=> handleRegionClick(region));
+        regionsEl.appendChild(btn);
+      });
+
+      foodsEl.innerHTML = '';
+      foodItems.forEach(food=>{
+        const wrap = document.createElement('div');
+        const btn = document.createElement('button');
+        btn.className = 'food';
+        if (completedFoods[food.name]) btn.className = 'food completed';
+        btn.textContent = food.name;
+        btn.disabled = !!completedFoods[food.name];
+        btn.addEventListener('click', ()=> handleFoodClick(food, btn));
+        wrap.appendChild(btn);
+        foodsEl.appendChild(wrap);
+      });
+    }
+
+    function handleRegionClick(region){
+      if (completedRegions[region]) return;
+      selectedRegion = region;
+      render();
+    }
+
+    function handleFoodClick(food, btn){
+      if (completed) return;
+      if (!selectedRegion) return;
+
+      if (food.region === selectedRegion){
+        completedFoods[food.name] = true;
+        const regionData = foodsData.find(r=> r.region === selectedRegion);
+        const allDone = regionData.items.every(item => completedFoods[item.name]);
+        if (allDone) completedRegions[selectedRegion] = true;
+
+        const totalFoods = foodItems.length;
+        const doneCount = Object.keys(completedFoods).length;
+        if (doneCount === totalFoods){
+          completed = true;
+          showModal();
+          runCanvasConfetti();
+        }
+        render();
+      } else {
+        btn.classList.add('shake');
+        setTimeout(()=> btn.classList.remove('shake'), 500);
+      }
+    }
+
+    const modal = document.getElementById('modal');
+    const playAgainBtn = document.getElementById('play-again');
+    playAgainBtn.addEventListener('click', ()=>{ hideModal(); initGame(); });
+
+    function showModal(){ modal.style.display = 'flex'; }
+    function hideModal(){ modal.style.display = 'none'; }
+
+    function runCanvasConfetti(){
+      const duration = 2000;
+      const end = Date.now() + duration;
+      const canvas = document.createElement('canvas');
+      canvas.style.position = 'fixed';
+      canvas.style.left='0';canvas.style.top='0';canvas.style.width='100%';canvas.style.height='100%';canvas.style.pointerEvents='none';canvas.style.zIndex='9999';
+      document.body.appendChild(canvas);
+      const ctx = canvas.getContext('2d');
+      const DPR = window.devicePixelRatio || 1;
+      canvas.width = window.innerWidth * DPR; canvas.height = window.innerHeight * DPR; ctx.scale(DPR,DPR);
+
+      const colors = ['#ff5e5e','#ffd35e','#5effa1','#5ec9ff','#c35eff'];
+      function rand(min,max){return Math.random()*(max-min)+min}
+      const particles = [];
+      for(let i=0;i<120;i++) particles.push({x:rand(0,window.innerWidth), y:rand(-20,window.innerHeight/2), vx:rand(-5,5), vy:rand(1,7), size:rand(5,10), color:colors[Math.floor(rand(0,colors.length))], rot:rand(0,Math.PI*2)});
+
+      function draw(){ ctx.clearRect(0,0,canvas.width,canvas.height); particles.forEach(p=>{ ctx.save(); ctx.translate(p.x,p.y); ctx.rotate(p.rot); ctx.fillStyle=p.color; ctx.fillRect(-p.size/2,-p.size/2,p.size,p.size*0.6); ctx.restore(); }); }
+      function update(){ const now=Date.now(); if(now>end){ document.body.removeChild(canvas); return;} particles.forEach(p=>{ p.x+=p.vx; p.y+=p.vy; p.vy+=0.12; p.rot+=0.05; }); draw(); requestAnimationFrame(update);} update();
+    }
+
+    initGame();
+  </script>
+</body>
+</html>
